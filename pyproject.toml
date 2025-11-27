@@ -6,7 +6,23 @@ build-backend = "setuptools.build_meta"
 name = "lsyzwm-master-sdk"
 version = "0.0.1"
 description = "LSYZWM Master SDK - 分布式任务管理系统主节点 SDK，提供 RPC 和 ZooKeeper 客户端"
+readme = "README.md"
 requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "9kl"}
+]
+keywords = ["lsyzwm", "distributed", "task", "rpc", "zookeeper", "sdk"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "kazoo==2.10.0"
 ]
