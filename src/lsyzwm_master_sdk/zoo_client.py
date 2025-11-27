@@ -6,7 +6,7 @@ from kazoo.protocol.states import KazooState
 from kazoo.exceptions import NoNodeError, NodeExistsError, NotEmptyError
 from kazoo.recipe.watchers import ChildrenWatch
 
-from .exceptions import LsyzwmZooError
+from .exceptions import LsyzwmZooError, LsyzwmZooNodeExistsError
 
 
 class MasterZooClient:
@@ -165,7 +165,7 @@ class MasterZooClient:
 
             self.zk.create(node_path, value=data, ephemeral=ephemeral, makepath=True)
         except NodeExistsError:
-            raise LsyzwmZooError(message=f"节点已存在: {node_path}", code=-2006, data={"path": node_path})
+            raise LsyzwmZooNodeExistsError(message=f"节点已存在: {node_path}", data={"path": node_path})
         except Exception as e:
             raise LsyzwmZooError(message=f"创建节点失败: {node_path} - {str(e)}", code=-2007, data={"path": node_path, "error": str(e)})
 
@@ -229,9 +229,8 @@ class MasterZooClient:
             worker_sid: worker 实例 ID
 
         Raises:
-            LsyzwmZooError: 当注册失败时
-                - code=-2006: worker 实例已存在（可能是重复的 worker_sid 或程序未正常退出）
-                - code=-2007: 创建节点失败
+            LsyzwmZooNodeExistsError: worker 实例已存在（可能是重复的 worker_sid 或程序未正常退出）
+            LsyzwmZooError: 创建节点失败
         """
         worker_id = f"{worker_name}-{worker_sid}"
         worker_path = f"{self.WORKERS_PATH}/{worker_id}"

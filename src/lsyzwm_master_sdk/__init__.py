@@ -6,11 +6,12 @@ LSYZWM Master SDK - 分布式任务管理系统主节点 SDK
 
 from .rpc_client import MasterRpcClient
 from .zoo_client import MasterZooClient
-from .exceptions import LsyzwmRpcError, LsyzwmZooError
+from .exceptions import LsyzwmRpcError, LsyzwmZooError, LsyzwmZooNodeExistsError
 
 __all__ = [
     "MasterRpcClient",
     "MasterZooClient",
     "LsyzwmRpcError",
     "LsyzwmZooError",
+    "LsyzwmZooNodeExistsError",
 ]
