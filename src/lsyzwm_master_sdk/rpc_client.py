@@ -8,6 +8,61 @@ from socket import error as SocketError
 from .exceptions import LsyzwmRpcError
 
 
+class RpcResponse:
+    """RPC 响应结果类"""
+
+    def __init__(self, raw_response: str):
+        """初始化 RPC 响应
+
+        Args:
+            raw_response: RPC 返回的原始 JSON 字符串
+        """
+        self._raw = raw_response
+        self._data = json.loads(raw_response)
+
+    @property
+    def raw(self) -> str:
+        """获取原始响应字符串"""
+        return self._raw
+
+    @property
+    def code(self) -> int:
+        """获取响应状态码"""
+        return self._data.get("code", -1)
+
+    @property
+    def message(self) -> str:
+        """获取响应消息"""
+        return self._data.get("message", "")
+
+    @property
+    def data(self) -> Any:
+        """获取响应数据"""
+        return self._data.get("data")
+
+    def get(self, key: str, default=None) -> Any:
+        """从响应字典中获取值
+
+        Args:
+            key: 键名
+            default: 默认值
+
+        Returns:
+            对应的值，如果不存在则返回默认值
+        """
+        return self._data.get(key, default)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return self._data.copy()
+
+    def __repr__(self) -> str:
+        return f"RpcResponse(code={self.code}, message='{self.message}')"
+
+    def __str__(self) -> str:
+        return f"[{self.code}] {self.message}"
+
+
 class MasterRpcClient:
     """Master RPC Client SDK - 方便上层服务调用 Master RPC Server"""
 
@@ -22,14 +77,14 @@ class MasterRpcClient:
         self.client = ServerProxy(rpc_server_url, allow_none=True)
         self.default_who = default_who
 
-    def _parse_response(self, response: str) -> Dict[str, Any]:
+    def _parse_response(self, response: str) -> RpcResponse:
         """解析 RPC 响应
 
         Args:
             response: RPC 返回的 JSON 字符串
 
         Returns:
-            解析后的字典
+            RpcResponse 响应对象
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用返回错误时（code != 200）
@@ -38,9 +93,9 @@ class MasterRpcClient:
         code = result.get("code", -1)
         if code != 200:
             raise LsyzwmRpcError(message=result.get("message", "Unknown error"), code=code, data=result.get("data"))
-        return result
+        return RpcResponse(response)
 
-    def _call_rpc(self, method_name: str, *args):
+    def _call_rpc(self, method_name: str, *args) -> RpcResponse:
         """统一的 RPC 调用方法，处理各种连接异常
 
         Args:
@@ -48,7 +103,7 @@ class MasterRpcClient:
             *args: RPC 方法参数
 
         Returns:
-            解析后的响应字典
+            RpcResponse 响应对象
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用失败时（包括连接异常、服务端异常等）
@@ -86,7 +141,7 @@ class MasterRpcClient:
         payload: Dict,
         worker_sid: Optional[int] = None,
         who: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> RpcResponse:
         """添加 worker 任务
 
         Args:
@@ -97,7 +152,7 @@ class MasterRpcClient:
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
-            响应结果字典
+            RpcResponse 响应对象
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用失败时
@@ -110,7 +165,7 @@ class MasterRpcClient:
         self,
         task_id: str,
         who: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> RpcResponse:
         """移除 worker 任务
 
         Args:
@@ -118,7 +173,7 @@ class MasterRpcClient:
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
-            响应结果字典
+            RpcResponse 响应对象
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用失败时
@@ -133,7 +188,7 @@ class MasterRpcClient:
         worker_sid: int,
         task_id: str,
         who: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> RpcResponse:
         """移除指定 worker 实例的任务
 
         Args:
@@ -143,7 +198,7 @@ class MasterRpcClient:
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
-            响应结果字典
+            RpcResponse 响应对象
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用失败时
@@ -159,7 +214,7 @@ class MasterRpcClient:
         task_id: str,
         as_json: bool = True,
         who: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> RpcResponse:
         """获取指定 worker 实例的任务值
 
         Args:
@@ -170,7 +225,7 @@ class MasterRpcClient:
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
-            响应结果字典，data 字段包含任务数据
+            RpcResponse 响应对象，data 属性包含任务数据
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用失败时
@@ -189,7 +244,7 @@ class MasterRpcClient:
         end_date_ts: Optional[int] = None,
         worker_sid: Optional[int] = None,
         who: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> RpcResponse:
         """添加 cron 定时作业
 
         Args:
@@ -203,7 +258,7 @@ class MasterRpcClient:
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
-            响应结果字典
+            RpcResponse 响应对象
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用失败时
@@ -226,7 +281,7 @@ class MasterRpcClient:
         end_date_ts: Optional[int] = None,
         worker_sid: Optional[int] = None,
         who: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> RpcResponse:
         """添加间隔执行作业
 
         Args:
@@ -244,7 +299,7 @@ class MasterRpcClient:
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
-            响应结果字典
+            RpcResponse 响应对象
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用失败时
@@ -261,7 +316,7 @@ class MasterRpcClient:
         delay_ts: int,
         worker_sid: Optional[int] = None,
         who: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> RpcResponse:
         """添加延迟作业（延迟指定秒数后执行一次）
 
         Args:
@@ -273,7 +328,7 @@ class MasterRpcClient:
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
-            响应结果字典
+            RpcResponse 响应对象
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用失败时
@@ -286,7 +341,7 @@ class MasterRpcClient:
         self,
         job_id: str,
         who: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> RpcResponse:
         """移除作业（包括 cron、interval 和 delay 作业）
 
         Args:
@@ -294,7 +349,7 @@ class MasterRpcClient:
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
-            响应结果字典
+            RpcResponse 响应对象
 
         Raises:
             LsyzwmRpcError: 当 RPC 调用失败时
