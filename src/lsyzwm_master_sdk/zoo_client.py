@@ -1,4 +1,5 @@
 import json
+import random
 from typing import Dict, Optional, Union, List, Callable
 
 from kazoo.client import KazooClient
@@ -274,16 +275,23 @@ class MasterZooClient:
             worker_name: worker 名称
             task_id: 任务 ID
             payload: 任务负载数据
-            worker_sid: worker 实例 ID（可选）
+            worker_sid: worker 实例 ID（可选，如果为空则随机选择一个在线实例）
 
         Raises:
             LsyzwmZooError: 当添加失败时
         """
+        # 如果指定了 worker_sid，直接使用
         if worker_sid is not None:
             worker_id = f"{worker_name}-{worker_sid}"
         else:
-            # 如果未指定 worker_sid，添加到 worker 的任务队列
-            worker_id = worker_name
+            # 获取该 worker 的所有实例
+            worker_instances = self.get_worker_instances(worker_name)
+
+            # 如果没有在线实例，使用默认实例名，否则从在线实例中随机选择一个
+            if not worker_instances:
+                worker_id = f"{worker_name}-1"
+            else:
+                worker_id = random.choice(worker_instances)
 
         task_path = f"{self.TASKS_PATH}/{worker_id}/{task_id}"
         self._create_node(task_path, payload)
@@ -365,6 +373,23 @@ class MasterZooClient:
             worker ID 列表
         """
         return self.get_children(self.WORKERS_PATH)
+
+    def get_worker_instances(self, worker_name: str) -> List[str]:
+        """获取指定 worker 的所有实例
+
+        Args:
+            worker_name: worker 名称
+
+        Returns:
+            匹配的 worker 实例列表（格式: worker_name-实例id）
+
+        Raises:
+            LsyzwmZooError: 当操作失败时
+        """
+        all_workers = self.get_registered_workers()
+        # 过滤出匹配 worker_name 的实例（格式: worker_name-实例id）
+        worker_instances = [w for w in all_workers if w.startswith(f"{worker_name}-")]
+        return worker_instances
 
     def get_worker_cache_value(self, worker_name: str, cache_id: str, as_json: bool = False) -> Optional[Union[str, Dict]]:
         """获取 worker 缓存节点值
