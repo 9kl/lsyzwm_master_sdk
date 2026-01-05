@@ -21,6 +21,9 @@ class MasterZooClient:
     TASKS_PATH = "/lsyzwm/tasks"
     CACHES_PATH = "/lsyzwm/caches"
     DELAY_JOBS_PATH = "/lsyzwm/delay_jobs"
+    INTERVAL_JOBS_PATH = "/lsyzwm/interval_jobs"
+    CRON_JOBS_PATH = "/lsyzwm/cron_jobs"
+    REMOVE_JOBS_PATH = "/lsyzwm/remove_jobs"
 
     def __init__(self, zk_hosts: str, timeout: float = None, connection_listener=None):
         """初始化 Master ZooKeeper 客户端
@@ -495,7 +498,118 @@ class MasterZooClient:
             LsyzwmZooError: 当创建失败时
         """
         node_value = {"job_id": job_id, "worker_name": worker_name, "worker_sid": worker_sid, "payload": payload, "delay_ts": delay_ts, "ts": ts, "who": who}
-        node_path = f"{self.DELAY_JOBS_PATH}/{worker_name}/{job_id}"
+        node_path = f"{self.DELAY_JOBS_PATH}/{job_id}"
+        self._create_node(node_path, node_value)
+
+    def create_cron_job_node(
+        self,
+        job_id: str,
+        worker_name: str,
+        payload: Dict,
+        cron: str,
+        ts: int,
+        who: str,
+        start_date_ts: Optional[int] = None,
+        end_date_ts: Optional[int] = None,
+        worker_sid: Optional[int] = None,
+    ) -> None:
+        """创建 cron 定时任务节点
+
+        Args:
+            job_id: 任务 ID
+            worker_name: worker 名称
+            payload: 任务负载数据
+            cron: cron 表达式
+            ts: 创建时间戳
+            who: 创建者标识
+            start_date_ts: 任务开始时间（秒级时间戳，可选）
+            end_date_ts: 任务结束时间（秒级时间戳，可选）
+            worker_sid: worker 实例 ID（可选）
+
+        Raises:
+            LsyzwmZooError: 当创建失败时
+        """
+        node_value = {
+            "job_id": job_id,
+            "worker_name": worker_name,
+            "worker_sid": worker_sid,
+            "payload": payload,
+            "cron": cron,
+            "start_date_ts": start_date_ts,
+            "end_date_ts": end_date_ts,
+            "ts": ts,
+            "who": who,
+        }
+        node_path = f"{self.CRON_JOBS_PATH}/{job_id}"
+        self._create_node(node_path, node_value)
+
+    def create_interval_job_node(
+        self,
+        job_id: str,
+        worker_name: str,
+        payload: Dict,
+        ts: int,
+        who: str,
+        weeks: int = 0,
+        days: int = 0,
+        hours: int = 0,
+        minutes: int = 0,
+        seconds: int = 0,
+        start_date_ts: Optional[int] = None,
+        end_date_ts: Optional[int] = None,
+        worker_sid: Optional[int] = None,
+    ) -> None:
+        """创建间隔任务节点
+
+        Args:
+            job_id: 任务 ID
+            worker_name: worker 名称
+            payload: 任务负载数据
+            ts: 创建时间戳
+            who: 创建者标识
+            weeks: 间隔周数（默认 0）
+            days: 间隔天数（默认 0）
+            hours: 间隔小时数（默认 0）
+            minutes: 间隔分钟数（默认 0）
+            seconds: 间隔秒数（默认 0）
+            start_date_ts: 任务开始时间（秒级时间戳，可选）
+            end_date_ts: 任务结束时间（秒级时间戳，可选）
+            worker_sid: worker 实例 ID（可选）
+
+        Raises:
+            LsyzwmZooError: 当创建失败时
+        """
+        node_value = {
+            "job_id": job_id,
+            "worker_name": worker_name,
+            "worker_sid": worker_sid,
+            "payload": payload,
+            "weeks": weeks,
+            "days": days,
+            "hours": hours,
+            "minutes": minutes,
+            "seconds": seconds,
+            "start_date_ts": start_date_ts,
+            "end_date_ts": end_date_ts,
+            "ts": ts,
+            "who": who,
+        }
+        node_path = f"{self.INTERVAL_JOBS_PATH}/{job_id}"
+        self._create_node(node_path, node_value)
+
+    def create_remove_job_node(self, job_id: str, ts: int, who: str) -> None:
+        """创建移除作业节点
+
+        Args:
+            job_id: 作业 ID
+            ts: 创建时间戳
+            who: 创建者标识
+
+        Raises:
+            LsyzwmZooError: 当创建失败时
+        """
+        node_value = {"job_id": job_id, "ts": ts, "who": who}
+        node_path = f"{self.REMOVE_JOBS_PATH}/{job_id}"
         self._create_node(node_path, node_value)
 
     def __enter__(self):

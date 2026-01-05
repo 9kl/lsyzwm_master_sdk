@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lsyzwm-master-sdk"
-version = "0.0.4"
+version = "0.0.5"
 description = "LSYZWM Master SDK - 分布式任务管理系统主节点 SDK，提供 RPC 和 ZooKeeper 客户端"
 readme = "README.md"
 requires-python = ">=3.8"
