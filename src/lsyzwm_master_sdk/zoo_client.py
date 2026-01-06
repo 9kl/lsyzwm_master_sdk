@@ -25,19 +25,21 @@ class MasterZooClient:
     CRON_JOBS_PATH = "/lsyzwm/cron_jobs"
     REMOVE_JOBS_PATH = "/lsyzwm/remove_jobs"
 
-    def __init__(self, zk_hosts: str, timeout: float = None, connection_listener=None):
+    def __init__(self, zk_hosts: str, timeout: float = None, connection_listener=None, auth_data: Optional[tuple] = None):
         """初始化 Master ZooKeeper 客户端
 
         Args:
             zk_hosts: ZooKeeper 服务器地址列表，逗号分隔，例如 'localhost:2181'
             timeout: 会话超时时间（秒），默认 10.0
             connection_listener: 自定义连接状态监听器函数，接收一个 state 参数（可选）
+            auth_data: 认证信息元组 (scheme, credential)，例如 ('digest', 'user:password')（可选）
         """
         self.hosts = zk_hosts
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         self.zk: Optional[KazooClient] = None
         self._connection_listener_added = False
         self._custom_connection_listener = connection_listener
+        self._auth_data = auth_data
 
     def _connection_listener(self, state):
         """连接状态监听器"""
@@ -60,6 +62,10 @@ class MasterZooClient:
                 self.zk.add_listener(self._connection_listener)
                 self._connection_listener_added = True
             self.zk.start()
+            # 添加认证信息（如果提供）
+            if self._auth_data:
+                scheme, credential = self._auth_data
+                self.zk.add_auth(scheme, credential)
         except Exception as e:
             raise LsyzwmZooError(message=f"ZooKeeper 连接失败: {str(e)}", code=-2001, data={"hosts": self.hosts, "error": str(e)})
 
