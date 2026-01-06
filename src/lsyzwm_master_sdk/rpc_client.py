@@ -140,6 +140,7 @@ class MasterRpcClient:
         worker_name: str,
         payload: Dict,
         worker_sid: Optional[int] = None,
+        task_type: str = "random",
         who: Optional[str] = None,
     ) -> RpcResponse:
         """添加 worker 任务
@@ -149,6 +150,7 @@ class MasterRpcClient:
             worker_name: worker 名称
             payload: 任务负载数据
             worker_sid: worker 实例 ID (可选)
+            task_type: 任务类型，"random"(默认，随机选择一个实例)或"broadcast"(广播到所有实例)，仅当 worker_sid=None 时生效
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
@@ -159,7 +161,7 @@ class MasterRpcClient:
         """
         ts = int(time.time())
         who = who or self.default_who
-        return self._call_rpc("add_worker_task", task_id, worker_name, payload, ts, who, worker_sid)
+        return self._call_rpc("add_worker_task", task_id, worker_name, payload, ts, who, worker_sid, task_type)
 
     def remove_worker_task(
         self,
@@ -243,6 +245,7 @@ class MasterRpcClient:
         start_date_ts: Optional[int] = None,
         end_date_ts: Optional[int] = None,
         worker_sid: Optional[int] = None,
+        task_type: str = "random",
         who: Optional[str] = None,
     ) -> RpcResponse:
         """添加 cron 定时作业
@@ -255,6 +258,7 @@ class MasterRpcClient:
             start_date_ts: 任务开始时间 (秒级时间戳, 可选)
             end_date_ts: 任务结束时间 (秒级时间戳, 可选)
             worker_sid: worker 实例 ID (可选)
+            task_type: 任务类型，"random"(默认，随机选择一个实例)或"broadcast"(广播到所有实例)
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
@@ -265,7 +269,7 @@ class MasterRpcClient:
         """
         ts = int(time.time())
         who = who or self.default_who
-        return self._call_rpc("add_cron_job", job_id, worker_name, payload, ts, who, cron, start_date_ts, end_date_ts, worker_sid)
+        return self._call_rpc("add_cron_job", job_id, worker_name, payload, ts, who, cron, start_date_ts, end_date_ts, worker_sid, task_type)
 
     def add_interval_job(
         self,
@@ -280,6 +284,7 @@ class MasterRpcClient:
         start_date_ts: Optional[int] = None,
         end_date_ts: Optional[int] = None,
         worker_sid: Optional[int] = None,
+        task_type: str = "random",
         who: Optional[str] = None,
     ) -> RpcResponse:
         """添加间隔执行作业
@@ -296,6 +301,7 @@ class MasterRpcClient:
             start_date_ts: 任务开始时间 (秒级时间戳, 可选)
             end_date_ts: 任务结束时间 (秒级时间戳, 可选)
             worker_sid: worker 实例 ID (可选)
+            task_type: 任务类型，"random"(默认，随机选择一个实例)或"broadcast"(广播到所有实例)
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
@@ -306,7 +312,7 @@ class MasterRpcClient:
         """
         ts = int(time.time())
         who = who or self.default_who
-        return self._call_rpc("add_interval_job", job_id, worker_name, payload, ts, who, weeks, days, hours, minutes, seconds, start_date_ts, end_date_ts, worker_sid)
+        return self._call_rpc("add_interval_job", job_id, worker_name, payload, ts, who, weeks, days, hours, minutes, seconds, start_date_ts, end_date_ts, worker_sid, task_type)
 
     def add_delay_job(
         self,
@@ -315,6 +321,7 @@ class MasterRpcClient:
         payload: Dict,
         delay_ts: int,
         worker_sid: Optional[int] = None,
+        task_type: str = "random",
         who: Optional[str] = None,
     ) -> RpcResponse:
         """添加延迟作业（延迟指定秒数后执行一次）
@@ -325,6 +332,7 @@ class MasterRpcClient:
             payload: 任务负载数据
             delay_ts: 延迟秒数
             worker_sid: worker 实例 ID (可选)
+            task_type: 任务类型，"random"(默认，随机选择一个实例)或"broadcast"(广播到所有实例)
             who: 操作人 (可选，默认使用初始化时的 default_who)
 
         Returns:
@@ -335,7 +343,7 @@ class MasterRpcClient:
         """
         ts = int(time.time())
         who = who or self.default_who
-        return self._call_rpc("add_delay_job", job_id, worker_name, payload, delay_ts, ts, who, worker_sid)
+        return self._call_rpc("add_delay_job", job_id, worker_name, payload, delay_ts, ts, who, worker_sid, task_type)
 
     def remove_job(
         self,

@@ -277,14 +277,15 @@ class MasterZooClient:
         except Exception as e:
             raise LsyzwmZooError(message=f"创建任务监听器失败: {task_node_path} - {str(e)}", code=-2015, data={"path": task_node_path, "error": str(e)})
 
-    def add_task_node(self, worker_name: str, task_id: str, payload: Dict, worker_sid: Optional[int] = None) -> None:
+    def add_task_node(self, worker_name: str, task_id: str, payload: Dict, worker_sid: Optional[int] = None, task_type: str = "random") -> None:
         """添加任务节点
 
         Args:
             worker_name: worker 名称
             task_id: 任务 ID
             payload: 任务负载数据
-            worker_sid: worker 实例 ID（可选，如果为空则随机选择一个在线实例）
+            worker_sid: worker 实例 ID（可选，如果为空则根据 task_type 决定分配策略）
+            task_type: 任务类型，"random"(默认，随机选择一个实例)或"broadcast"(广播到所有实例)，仅当 worker_sid=None 时生效
 
         Raises:
             LsyzwmZooError: 当添加失败时
@@ -292,18 +293,29 @@ class MasterZooClient:
         # 如果指定了 worker_sid，直接使用
         if worker_sid is not None:
             worker_id = f"{worker_name}-{worker_sid}"
-        else:
-            # 获取该 worker 的所有实例
+            task_path = f"{self.TASKS_PATH}/{worker_id}/{task_id}"
+            self._create_node(task_path, payload)
+        elif task_type == "broadcast":
+            # 广播模式：向所有在线实例发送任务
             worker_instances = self.get_worker_instances(worker_name)
-
-            # 如果没有在线实例，使用默认实例名，否则从在线实例中随机选择一个
+            if not worker_instances:
+                # 没有在线实例时，使用默认实例名
+                worker_id = f"{worker_name}-1"
+                task_path = f"{self.TASKS_PATH}/{worker_id}/{task_id}"
+                self._create_node(task_path, payload)
+            else:
+                for worker_id in worker_instances:
+                    task_path = f"{self.TASKS_PATH}/{worker_id}/{task_id}"
+                    self._create_node(task_path, payload)
+        else:
+            # random 模式：随机选择一个实例
+            worker_instances = self.get_worker_instances(worker_name)
             if not worker_instances:
                 worker_id = f"{worker_name}-1"
             else:
                 worker_id = random.choice(worker_instances)
-
-        task_path = f"{self.TASKS_PATH}/{worker_id}/{task_id}"
-        self._create_node(task_path, payload)
+            task_path = f"{self.TASKS_PATH}/{worker_id}/{task_id}"
+            self._create_node(task_path, payload)
 
     def remove_task_node(self, task_id: str) -> None:
         """移除任务节点（搜索所有 worker）
@@ -488,7 +500,9 @@ class MasterZooClient:
         cache_path = f"{self.CACHES_PATH}/{worker_id}/{cache_id}"
         self._set_node_value(cache_path, payload)
 
-    def create_delay_job_node(self, job_id: str, worker_name: str, payload: Dict, delay_ts: int, ts: int, who: str, worker_sid: Optional[int] = None) -> None:
+    def create_delay_job_node(
+        self, job_id: str, worker_name: str, payload: Dict, delay_ts: int, ts: int, who: str, worker_sid: Optional[int] = None, task_type: str = "random"
+    ) -> None:
         """创建延时任务节点
 
         Args:
@@ -499,11 +513,21 @@ class MasterZooClient:
             ts: 创建时间戳
             who: 创建者标识
             worker_sid: worker 实例 ID（可选）
+            task_type: 任务类型，"random"(默认)或"broadcast"(广播)
 
         Raises:
             LsyzwmZooError: 当创建失败时
         """
-        node_value = {"job_id": job_id, "worker_name": worker_name, "worker_sid": worker_sid, "payload": payload, "delay_ts": delay_ts, "ts": ts, "who": who}
+        node_value = {
+            "job_id": job_id,
+            "worker_name": worker_name,
+            "worker_sid": worker_sid,
+            "payload": payload,
+            "delay_ts": delay_ts,
+            "ts": ts,
+            "who": who,
+            "task_type": task_type,
+        }
         node_path = f"{self.DELAY_JOBS_PATH}/{job_id}"
         self._create_node(node_path, node_value)
 
@@ -518,6 +542,7 @@ class MasterZooClient:
         start_date_ts: Optional[int] = None,
         end_date_ts: Optional[int] = None,
         worker_sid: Optional[int] = None,
+        task_type: str = "random",
     ) -> None:
         """创建 cron 定时任务节点
 
@@ -531,6 +556,7 @@ class MasterZooClient:
             start_date_ts: 任务开始时间（秒级时间戳，可选）
             end_date_ts: 任务结束时间（秒级时间戳，可选）
             worker_sid: worker 实例 ID（可选）
+            task_type: 任务类型，"random"(默认)或"broadcast"(广播)
 
         Raises:
             LsyzwmZooError: 当创建失败时
@@ -545,6 +571,7 @@ class MasterZooClient:
             "end_date_ts": end_date_ts,
             "ts": ts,
             "who": who,
+            "task_type": task_type,
         }
         node_path = f"{self.CRON_JOBS_PATH}/{job_id}"
         self._create_node(node_path, node_value)
@@ -564,6 +591,7 @@ class MasterZooClient:
         start_date_ts: Optional[int] = None,
         end_date_ts: Optional[int] = None,
         worker_sid: Optional[int] = None,
+        task_type: str = "random",
     ) -> None:
         """创建间隔任务节点
 
@@ -581,6 +609,7 @@ class MasterZooClient:
             start_date_ts: 任务开始时间（秒级时间戳，可选）
             end_date_ts: 任务结束时间（秒级时间戳，可选）
             worker_sid: worker 实例 ID（可选）
+            task_type: 任务类型，"random"(默认)或"broadcast"(广播)
 
         Raises:
             LsyzwmZooError: 当创建失败时
@@ -599,6 +628,7 @@ class MasterZooClient:
             "end_date_ts": end_date_ts,
             "ts": ts,
             "who": who,
+            "task_type": task_type,
         }
         node_path = f"{self.INTERVAL_JOBS_PATH}/{job_id}"
         self._create_node(node_path, node_value)
