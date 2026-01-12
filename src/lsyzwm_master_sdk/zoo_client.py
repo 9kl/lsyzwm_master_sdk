@@ -1,9 +1,9 @@
 import json
 import random
+import time
 from typing import Dict, Optional, Union, List, Callable
 
 from kazoo.client import KazooClient
-from kazoo.protocol.states import KazooState
 from kazoo.exceptions import NoNodeError, NodeExistsError, NotEmptyError
 from kazoo.recipe.watchers import ChildrenWatch
 
@@ -20,10 +20,7 @@ class MasterZooClient:
     WORKERS_PATH = "/lsyzwm/workers"
     TASKS_PATH = "/lsyzwm/tasks"
     CACHES_PATH = "/lsyzwm/caches"
-    DELAY_JOBS_PATH = "/lsyzwm/delay_jobs"
-    INTERVAL_JOBS_PATH = "/lsyzwm/interval_jobs"
-    CRON_JOBS_PATH = "/lsyzwm/cron_jobs"
-    REMOVE_JOBS_PATH = "/lsyzwm/remove_jobs"
+    MASTER_TASKS_PATH = "/lsyzwm/master_tasks"
 
     def __init__(self, zk_hosts: str, timeout: float = None, connection_listener=None, auth_data: Optional[tuple] = None):
         """初始化 Master ZooKeeper 客户端
@@ -500,9 +497,29 @@ class MasterZooClient:
         cache_path = f"{self.CACHES_PATH}/{worker_id}/{cache_id}"
         self._set_node_value(cache_path, payload)
 
+    def _add_master_task_node(self, master_worker_name: str, payload: Dict) -> str:
+        """添加master任务节点
+
+        Args:
+            master_worker_name: master worker 名称
+            payload: 任务负载数据
+
+        Returns:
+            生成的 task_id
+
+        Raises:
+            LsyzwmZooError: 当添加失败时
+        """
+        timestamp = int(time.time() * 1000)  # 毫秒级时间戳
+        rand_suffix = random.randint(1000, 9999)
+        task_id = f"{timestamp}_{rand_suffix}"
+        task_path = f"{self.MASTER_TASKS_PATH}/{master_worker_name}/{task_id}"
+        self._create_node(task_path, payload)
+        return task_id
+
     def create_delay_job_node(
-        self, job_id: str, worker_name: str, payload: Dict, delay_ts: int, ts: int, who: str, worker_sid: Optional[int] = None, task_type: str = "random"
-    ) -> None:
+        self, job_id: str, worker_name: str, payload: Dict, delay_ts: int, who: str, worker_sid: Optional[int] = None, task_type: str = "random"
+    ) -> str:
         """创建延时任务节点
 
         Args:
@@ -510,7 +527,6 @@ class MasterZooClient:
             worker_name: worker 名称
             payload: 任务负载数据
             delay_ts: 延迟时间戳
-            ts: 创建时间戳
             who: 创建者标识
             worker_sid: worker 实例 ID（可选）
             task_type: 任务类型，"random"(默认)或"broadcast"(广播)
@@ -518,6 +534,7 @@ class MasterZooClient:
         Raises:
             LsyzwmZooError: 当创建失败时
         """
+        ts = int(time.time())
         node_value = {
             "job_id": job_id,
             "worker_name": worker_name,
@@ -528,8 +545,7 @@ class MasterZooClient:
             "who": who,
             "task_type": task_type,
         }
-        node_path = f"{self.DELAY_JOBS_PATH}/{job_id}"
-        self._create_node(node_path, node_value)
+        return self._add_master_task_node("master_job_delay", node_value)
 
     def create_cron_job_node(
         self,
@@ -537,13 +553,12 @@ class MasterZooClient:
         worker_name: str,
         payload: Dict,
         cron: str,
-        ts: int,
         who: str,
         start_date_ts: Optional[int] = None,
         end_date_ts: Optional[int] = None,
         worker_sid: Optional[int] = None,
         task_type: str = "random",
-    ) -> None:
+    ) -> str:
         """创建 cron 定时任务节点
 
         Args:
@@ -551,7 +566,6 @@ class MasterZooClient:
             worker_name: worker 名称
             payload: 任务负载数据
             cron: cron 表达式
-            ts: 创建时间戳
             who: 创建者标识
             start_date_ts: 任务开始时间（秒级时间戳，可选）
             end_date_ts: 任务结束时间（秒级时间戳，可选）
@@ -561,6 +575,7 @@ class MasterZooClient:
         Raises:
             LsyzwmZooError: 当创建失败时
         """
+        ts = int(time.time())
         node_value = {
             "job_id": job_id,
             "worker_name": worker_name,
@@ -573,15 +588,14 @@ class MasterZooClient:
             "who": who,
             "task_type": task_type,
         }
-        node_path = f"{self.CRON_JOBS_PATH}/{job_id}"
-        self._create_node(node_path, node_value)
+
+        return self._add_master_task_node("master_job_cron", node_value)
 
     def create_interval_job_node(
         self,
         job_id: str,
         worker_name: str,
         payload: Dict,
-        ts: int,
         who: str,
         weeks: int = 0,
         days: int = 0,
@@ -592,14 +606,13 @@ class MasterZooClient:
         end_date_ts: Optional[int] = None,
         worker_sid: Optional[int] = None,
         task_type: str = "random",
-    ) -> None:
+    ) -> str:
         """创建间隔任务节点
 
         Args:
             job_id: 任务 ID
             worker_name: worker 名称
             payload: 任务负载数据
-            ts: 创建时间戳
             who: 创建者标识
             weeks: 间隔周数（默认 0）
             days: 间隔天数（默认 0）
@@ -614,6 +627,7 @@ class MasterZooClient:
         Raises:
             LsyzwmZooError: 当创建失败时
         """
+        ts = int(time.time())
         node_value = {
             "job_id": job_id,
             "worker_name": worker_name,
@@ -630,23 +644,46 @@ class MasterZooClient:
             "who": who,
             "task_type": task_type,
         }
-        node_path = f"{self.INTERVAL_JOBS_PATH}/{job_id}"
-        self._create_node(node_path, node_value)
+        return self._add_master_task_node("master_job_interval", node_value)
 
-    def create_remove_job_node(self, job_id: str, ts: int, who: str) -> None:
+    def create_remove_job_node(self, job_id: str, who: str) -> str:
         """创建移除作业节点
 
         Args:
             job_id: 作业 ID
-            ts: 创建时间戳
             who: 创建者标识
 
         Raises:
             LsyzwmZooError: 当创建失败时
         """
+        ts = int(time.time())
         node_value = {"job_id": job_id, "ts": ts, "who": who}
-        node_path = f"{self.REMOVE_JOBS_PATH}/{job_id}"
-        self._create_node(node_path, node_value)
+        return self._add_master_task_node("master_job_remove", node_value)
+
+    def delete_client_task(self, worker_name: str, worker_sid: int, task_id: str, who: str) -> str:
+        """删除客户端任务
+
+        Args:
+            worker_name: worker 名称
+            worker_sid: worker 实例 ID
+            task_id: 任务 ID
+            who: 创建者标识
+
+        Returns:
+            生成的 master task_id
+
+        Raises:
+            LsyzwmZooError: 当创建失败时
+        """
+        ts = int(time.time())
+        node_value = {
+            "worker_name": worker_name,
+            "worker_sid": worker_sid,
+            "task_id": task_id,
+            "ts": ts,
+            "who": who,
+        }
+        return self._add_master_task_node("master_client_task_delete", node_value)
 
     def __enter__(self):
         """上下文管理器入口"""
