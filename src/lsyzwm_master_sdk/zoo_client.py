@@ -531,6 +531,9 @@ class MasterZooClient:
             worker_sid: worker 实例 ID（可选）
             task_type: 任务类型，"random"(默认)或"broadcast"(广播)
 
+        Returns:
+            生成的 master task_id
+
         Raises:
             LsyzwmZooError: 当创建失败时
         """
@@ -571,6 +574,9 @@ class MasterZooClient:
             end_date_ts: 任务结束时间（秒级时间戳，可选）
             worker_sid: worker 实例 ID（可选）
             task_type: 任务类型，"random"(默认)或"broadcast"(广播)
+
+        Returns:
+            生成的 master task_id
 
         Raises:
             LsyzwmZooError: 当创建失败时
@@ -624,6 +630,9 @@ class MasterZooClient:
             worker_sid: worker 实例 ID（可选）
             task_type: 任务类型，"random"(默认)或"broadcast"(广播)
 
+        Returns:
+            生成的 master task_id
+
         Raises:
             LsyzwmZooError: 当创建失败时
         """
@@ -652,6 +661,9 @@ class MasterZooClient:
         Args:
             job_id: 作业 ID
             who: 创建者标识
+
+        Returns:
+            生成的 master task_id
 
         Raises:
             LsyzwmZooError: 当创建失败时
