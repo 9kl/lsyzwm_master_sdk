@@ -90,14 +90,14 @@ class MasterZooClient:
         if not self.is_connected():
             raise LsyzwmZooError(message="ZooKeeper 未连接", code=-2002, data=None)
 
-    def _get_node_value(self, node_path: str) -> Optional[str]:
+    def _get_node_value(self, node_path: str) -> tuple:
         """获取 ZooKeeper 节点的值（私有方法）
 
         Args:
             node_path: 节点路径
 
         Returns:
-            节点值(UTF-8字符串)，如果节点不存在则返回 None
+            元组 (节点值, stat)，节点值为 UTF-8 字符串，如果节点不存在则返回 (None, None)
 
         Raises:
             LsyzwmZooError: 当操作失败时
@@ -106,13 +106,13 @@ class MasterZooClient:
         try:
             data, stat = self.zk.get(node_path)
             if not data:
-                return None
+                return (None, stat)
 
             if isinstance(data, bytes):
-                return data.decode("utf-8")
-            return data
+                return (data.decode("utf-8"), stat)
+            return (data, stat)
         except NoNodeError:
-            return None
+            return (None, None)
         except UnicodeDecodeError as e:
             raise LsyzwmZooError(message=f"节点数据解码失败: {node_path}", code=-2003, data={"path": node_path, "error": str(e)})
         except Exception as e:
@@ -372,13 +372,16 @@ class MasterZooClient:
         worker_id = f"{worker_name}-{worker_sid}"
         task_path = f"{self.TASKS_PATH}/{worker_id}/{task_id}"
 
-        value = self._get_node_value(task_path)
+        value, stat = self._get_node_value(task_path)
         if value is None:
             return None
 
         if as_json:
             try:
-                return json.loads(value)
+                result = json.loads(value)
+                if isinstance(result, dict) and stat is not None:
+                    result["_ctime"] = stat.ctime
+                return result
             except json.JSONDecodeError as e:
                 raise LsyzwmZooError(message=f"JSON 解析失败: {task_path}", code=-2011, data={"path": task_path, "error": str(e)})
 
@@ -424,14 +427,17 @@ class MasterZooClient:
             LsyzwmZooError: 当操作失败时
         """
         cache_path = f"{self.CACHES_PATH}/{worker_name}/{cache_id}"
-        value = self._get_node_value(cache_path)
+        value, stat = self._get_node_value(cache_path)
 
         if value is None:
             return None
 
         if as_json:
             try:
-                return json.loads(value)
+                result = json.loads(value)
+                if isinstance(result, dict) and stat is not None:
+                    result["_ctime"] = stat.ctime
+                return result
             except json.JSONDecodeError as e:
                 raise LsyzwmZooError(message=f"JSON 解析失败: {cache_path}", code=-2012, data={"path": cache_path, "error": str(e)})
 
@@ -468,14 +474,17 @@ class MasterZooClient:
         """
         worker_id = f"{worker_name}-{worker_sid}"
         cache_path = f"{self.CACHES_PATH}/{worker_id}/{cache_id}"
-        value = self._get_node_value(cache_path)
+        value, stat = self._get_node_value(cache_path)
 
         if value is None:
             return None
 
         if as_json:
             try:
-                return json.loads(value)
+                result = json.loads(value)
+                if isinstance(result, dict) and stat is not None:
+                    result["_ctime"] = stat.ctime
+                return result
             except json.JSONDecodeError as e:
                 raise LsyzwmZooError(message=f"JSON 解析失败: {cache_path}", code=-2013, data={"path": cache_path, "error": str(e)})
 
@@ -517,9 +526,7 @@ class MasterZooClient:
         self._create_node(task_path, payload)
         return task_id
 
-    def create_delay_job_node(
-        self, job_id: str, worker_name: str, payload: Dict, delay_ts: int, who: str, worker_sid: Optional[int] = None, task_type: str = "random"
-    ) -> str:
+    def create_delay_job_node(self, job_id: str, worker_name: str, payload: Dict, delay_ts: int, who: str, worker_sid: Optional[int] = None, task_type: str = "random") -> str:
         """创建延时任务节点
 
         Args:

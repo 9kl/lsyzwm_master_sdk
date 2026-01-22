@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.9] - 2026-01-22
+
+### Changed
+- `_get_node_value` 方法返回值从 `Optional[str]` 改为 `tuple (value, stat)`，支持获取节点元数据
+- `get_worker_instance_task`、`get_worker_cache_value`、`get_worker_instance_cache_value` 方法在返回 JSON 时自动注入 `_ctime` 字段（节点创建时间，毫秒级时间戳）
+
 ## [0.0.5] - 2026-01-05
 
 ### Added
